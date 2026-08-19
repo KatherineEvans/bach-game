@@ -7,14 +7,20 @@ const ranked = computed(() => leaderboard.value.filter((h) => h.matchups > 0))
 const winRate = (h) => (h.matchups ? Math.round((h.wins / h.matchups) * 100) : 0)
 
 const formatDate = (iso) =>
-  new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  iso
+    ? new Date(iso).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : ''
 </script>
 
 <template>
   <div class="round-header">
     <p class="rname">Hall of Fame</p>
     <p class="rsub">All-Time Standings</p>
-    <p class="rhint">Every vote you've cast on this device, tallied up.</p>
+    <p class="rhint">Every vote from every phone, across every bracket ever run.</p>
   </div>
 
   <div class="hall-stats">
@@ -33,7 +39,7 @@ const formatDate = (iso) =>
   </div>
 
   <p v-if="!ranked.length" class="empty">
-    No votes yet — head to the Round of 16 and start picking.
+    No results yet — head to the Round of 16 and start voting.
   </p>
 
   <div v-else class="standings">
@@ -63,7 +69,7 @@ const formatDate = (iso) =>
   <div v-if="completedRuns.length" class="history">
     <h3>Past champions</h3>
     <ol>
-      <li v-for="(run, i) in completedRuns" :key="run.finishedAt + i">
+      <li v-for="(run, i) in completedRuns" :key="(run.finishedAt ?? '') + i">
         <span>🏆 {{ HORSES[run.champion]?.name ?? 'Unknown' }}</span>
         <span class="when">{{ formatDate(run.finishedAt) }}</span>
       </li>

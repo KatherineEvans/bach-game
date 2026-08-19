@@ -6,6 +6,9 @@ const props = defineProps({
   horseKey: { type: String, default: null },
   state: { type: String, default: '' }, // '' | 'winner' | 'loser'
   pickable: { type: Boolean, default: false },
+  picked: { type: Boolean, default: false }, // this device voted for them
+  votes: { type: Number, default: 0 },
+  share: { type: Number, default: null }, // 0–100, or null to hide the tally
 })
 
 defineEmits(['pick'])
@@ -25,7 +28,7 @@ const horse = computed(() => (props.horseKey ? HORSES[props.horseKey] : null))
     v-else
     :type="pickable ? 'button' : null"
     class="horse"
-    :class="[state, { pickable }]"
+    :class="[state, { pickable, picked }]"
     :aria-pressed="pickable ? state === 'winner' : null"
     @click="pickable && $emit('pick', horseKey)"
   >
@@ -34,6 +37,15 @@ const horse = computed(() => (props.horseKey ? HORSES[props.horseKey] : null))
     </div>
     <div class="name">{{ horse.name }}</div>
     <div class="sub">{{ horse.sub }}</div>
+
+    <div v-if="share !== null" class="tally">
+      <div class="tally-bar"><span :style="{ width: `${share}%` }"></span></div>
+      <div class="tally-num">
+        {{ votes }} {{ votes === 1 ? 'vote' : 'votes' }} · {{ share }}%
+      </div>
+    </div>
+
+    <div v-if="picked" class="your-pick">Your pick</div>
 
     <svg v-if="state === 'winner'" class="ribbon" viewBox="0 0 64 64" aria-hidden="true">
       <circle cx="32" cy="24" r="18" fill="#C79A2B" stroke="#fff" stroke-width="2" />

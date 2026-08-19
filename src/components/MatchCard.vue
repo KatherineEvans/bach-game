@@ -7,31 +7,40 @@ const props = defineProps({
   index: { type: Number, required: true },
 })
 
-defineEmits(['pick'])
+defineEmits(['vote'])
 
 const ready = computed(() => Boolean(props.match.a && props.match.b))
-const stateFor = (key) => {
-  if (!props.match.winner) return ''
-  return props.match.winner === key ? 'winner' : 'loser'
+const canVote = computed(() => ready.value && props.match.isOpen && !props.match.myPick)
+
+/**
+ * Ribbon on the winner, "Neigh" on the loser — driven by YOUR pick the moment
+ * you tap, so the card reacts immediately. Once the host locks the round in,
+ * it switches to the room's actual winner, which may not be who you picked.
+ * Running tallies live on the results page, not here.
+ */
+function stateFor(key) {
+  const decided = props.match.winner ?? props.match.myPick
+  if (!decided) return ''
+  return decided === key ? 'winner' : 'loser'
 }
 </script>
 
 <template>
-  <div class="match">
+  <div class="match" :class="{ decided: !!match.winner, voted: !!match.myPick }">
     <div class="matchlabel">Match {{ index + 1 }}</div>
     <div class="pair">
       <HorseCard
         :horse-key="match.a"
         :state="stateFor(match.a)"
-        :pickable="ready"
-        @pick="$emit('pick', $event)"
+        :pickable="canVote"
+        @pick="$emit('vote', $event)"
       />
       <div class="vs">vs</div>
       <HorseCard
         :horse-key="match.b"
         :state="stateFor(match.b)"
-        :pickable="ready"
-        @pick="$emit('pick', $event)"
+        :pickable="canVote"
+        @pick="$emit('vote', $event)"
       />
     </div>
   </div>
