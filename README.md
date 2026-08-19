@@ -57,8 +57,18 @@ duplicated into `src/`. To change the field, edit `src/data/horses.js`:
 import the image, add an entry to `HORSES`, and put the key in `SEED`.
 `SEED` is 8 pairs; a different size needs a power of two.
 
-(Several files in `Horses/` are WebP or JPEG behind a `.png` name. Browsers
-sniff the actual bytes, so it renders fine either way.)
+Frames are 4:3 landscape with `object-fit: contain`, so whatever shape the
+photo is, the whole horse shows and nothing gets cropped. New photos don't
+need to match any aspect ratio — but keep them under ~900px on the long side
+so the deploy stays light:
+
+```bash
+sips -Z 900 photo.png                      # only if it's bigger than 900px
+cwebp -q 82 -alpha_q 100 -m 6 photo.png -o photo.webp
+```
+
+(Most files in `Horses/` are WebP or JPEG behind a `.png` name. Browsers sniff
+the actual bytes, so it renders fine either way.)
 
 ## Layout
 
