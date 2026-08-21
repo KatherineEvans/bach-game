@@ -23,6 +23,11 @@ export const loading = ref(true)
 export const error = ref(null)
 export const busy = ref(false) // a host action is in flight
 
+// Bumped each time the /results page taps "Advance to next round". Every
+// device gets the bump via supabase broadcast, so the /vote page knows to
+// unlock its own "Advance" button once (and only once) the host has moved on.
+export const advanceEpoch = ref(0)
+
 // Which round you're LOOKING at stays per-device — it's UI state, not a result.
 export const viewIdx = useStoredRef('hottest-horses:view:v2', 0)
 
@@ -135,6 +140,11 @@ function subscribe() {
   on('brackets', scheduleBracketRefresh)
   // A host dealing a fresh bracket repoints app_state — everyone follows.
   on('app_state', loadAll)
+  // Cross-device "advance" signal from /results. `self: false` is the default,
+  // so the sender bumps its own epoch manually in broadcastAdvance().
+  channel.on('broadcast', { event: 'advance' }, () => {
+    advanceEpoch.value += 1
+  })
   channel.subscribe()
 }
 
@@ -179,6 +189,21 @@ export const rounds = computed(() => {
 })
 
 export const champion = computed(() => bracketRow.value?.champion_key ?? null)
+
+/**
+ * The round the room is voting on right now — first with any undecided
+ * matchup. If every round is decided, holds on the final so the champion
+ * splash makes sense next to the final tile.
+ */
+export const liveRound = computed(() => {
+  const rs = rounds.value
+  for (let i = 0; i < rs.length; i++) {
+    const r = rs[i]
+    if (!r?.length) continue
+    if (r.some((m) => !m?.winner)) return i
+  }
+  return Math.max(0, rs.length - 1)
+})
 
 export function roundComplete(r) {
   const round = rounds.value[r]
@@ -240,29 +265,46 @@ export function goToResults(r) {
 }
 
 /**
- * Cast this device's vote. One per match, and final — matching the DB's
- * UNIQUE (match_id, client_id). The insert is optimistic so the tally moves
- * immediately; realtime then corrects it with everyone else's votes.
+ * Cast (or swap) this device's vote on a match. Voters can change their
+ * pick until the round is locked in by the host; the DB's set_vote RPC
+ * upserts on (match_id, client_id) so the row moves rather than double-counts.
+ * Optimistic so the tally reflects the tap immediately; realtime then
+ * reconciles with everyone else's votes.
  */
 export async function castVote(roundIndex, slotIndex, horseKey) {
   const match = rounds.value[roundIndex]?.[slotIndex]
-  if (!match || !match.isOpen || match.myPick) return
+  if (!match || !match.isOpen || match.winner) return
+  if (match.myPick === horseKey) return // already picked this horse
 
-  myVoteRows.value = [...myVoteRows.value, { match_id: match.id, horse_key: horseKey }]
+  const prev = match.myPick
+
+  myVoteRows.value = [
+    ...myVoteRows.value.filter((v) => v.match_id !== match.id),
+    { match_id: match.id, horse_key: horseKey },
+  ]
+
   countRows.value = [...countRows.value]
-  const existing = countRows.value.find((r) => r.match_id === match.id && r.horse_key === horseKey)
-  if (existing) existing.votes += 1
+  if (prev) {
+    const prevRow = countRows.value.find(
+      (r) => r.match_id === match.id && r.horse_key === prev,
+    )
+    if (prevRow) prevRow.votes = Math.max(0, prevRow.votes - 1)
+  }
+  const nextRow = countRows.value.find(
+    (r) => r.match_id === match.id && r.horse_key === horseKey,
+  )
+  if (nextRow) nextRow.votes += 1
   else countRows.value.push({ match_id: match.id, horse_key: horseKey, votes: 1 })
 
-  const { error: e } = await supabase
-    .from('votes')
-    .insert({ match_id: match.id, horse_key: horseKey, client_id: clientId })
+  const { error: e } = await supabase.rpc('set_vote', {
+    p_match_id: match.id,
+    p_horse_key: horseKey,
+    p_client_id: clientId,
+  })
 
-  // 23505 = unique violation: this device already voted here. That's a
-  // success — the vote is locked in — so leave the optimistic state alone.
-  if (e && e.code !== '23505') {
+  if (e) {
     fail(e)
-    await refreshVotes() // undo the optimistic bump
+    await refreshVotes() // undo the optimistic swap
   }
 }
 
@@ -292,6 +334,16 @@ export function lockInRound(roundIndex) {
 /** Bank the finished bracket and deal a new one. Standings carry over. */
 export function dealFreshBracket() {
   return hostAction(() => supabase.rpc('new_bracket'))
+}
+
+/**
+ * Tell every other device that /results just advanced past a round. Called
+ * from ResultsView after the "Advance" or "Run it back" tap — /vote listens
+ * on the same channel to unlock its own advance button.
+ */
+export function broadcastAdvance() {
+  advanceEpoch.value += 1 // self doesn't receive its own broadcast
+  channel?.send({ type: 'broadcast', event: 'advance', payload: {} })
 }
 
 /**

@@ -10,16 +10,13 @@ import { totalVotes, completedRuns, hasStarted } from '../composables/useTournam
 
     <section class="home-blurb">
       <p class="home-lede">
-        Sixteen four-legged heartthrobs. One winner's circle. Zero mane events wasted.
+        Sixteen four-legged heartthrobs. <br /> One winner's circle. <br />Time to vote on the 'mane' event.
       </p>
       <p>
-        Everyone in the room saddles up on their own phone, we run the bracket
-        round by round, and the results gallop in live. No horsing around —
-        the room votes, and the hottest horse takes home the roses.
+        Everyone in the room saddles up on their own phone (hottesthorses.com), we run the bracket round by round, and the results gallop in live. No horsing around: the room votes, and the hottest horse takes home the roses.
       </p>
       <p class="home-tagline">
-        Whether you're here to <em>rein</em> supreme in the bracket or just
-        <em>foal</em>-low along with the tallies, giddy up and pick your poison.
+        Giddy up and pick your horse!
       </p>
     </section>
 

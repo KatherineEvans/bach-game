@@ -10,7 +10,9 @@ const props = defineProps({
 defineEmits(['vote'])
 
 const ready = computed(() => Boolean(props.match.a && props.match.b))
-const canVote = computed(() => ready.value && props.match.isOpen && !props.match.myPick)
+// Both horses stay pickable while the round is open — tapping the other one
+// swaps your vote. Only closes off once the host locks the round in.
+const canVote = computed(() => ready.value && props.match.isOpen && !props.match.winner)
 
 /**
  * Ribbon on the winner, "Neigh" on the loser — driven by YOUR pick the moment
